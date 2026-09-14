@@ -1,4 +1,7 @@
+
 # J.A.R.V.I.S. — Technical Case Study
+
+<img width="1920" height="1080" alt="Jarvis 3 5" src="https://github.com/user-attachments/assets/72a65b71-a748-4a5d-9e65-4eedbdf9c78c" />
 
 **J.A.R.V.I.S.** (Just A Rather Very Intelligent System) — персональная AI-платформа и ассистент с несколькими интерфейсами, долгосрочной памятью, расширяемой плагинной системой и отказоустойчивым выбором модели.
 
