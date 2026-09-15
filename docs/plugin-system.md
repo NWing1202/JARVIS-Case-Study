@@ -1,71 +1,99 @@
-# Plugin System
+# Система плагинов
 
-## Design goal
+## Назначение
 
-Plugins add capabilities without changing the core dialogue contract. A plugin can observe events, inject bounded context, expose tools, or answer direct module commands.
+Плагин добавляет возможность, не меняя контракт основного диалога. Он может реагировать на события, добавлять ограниченный контекст в `PromptPipeline`, предоставлять команды или инструменты, а также перехватывать сообщение через хук `on_message` на уровне кода.
 
-## Lifecycle
+## Манифест
 
-A plugin is discovered from a directory manifest and follows this lifecycle:
+Плагин размещается в отдельной директории с файлом `plugin.json`. Загрузчик сканирует поддиректории, пропускает директории, начинающиеся с `_`, и регистрирует найденные манифесты.
+
+| Поле | Назначение |
+|---|---|
+| `name` | Обязательный уникальный идентификатор плагина и ключ в реестре. |
+| `entry_point` | Обязательный путь в формате `module.ClassName`; класс импортируется динамически и получает ссылку на ядро. |
+| `version` | Метаданные версии; загрузчик использует их в логировании. |
+| `description` | Метаданные описания; загрузчик использует их в логировании. |
+| `requires` | Метаданные зависимостей; текущий загрузчик не устанавливает и не проверяет их автоматически. |
+| `config` | Значения по умолчанию, которые передаются плагину и могут быть переопределены конфигурацией. |
+| `auto_enable` | Запускать ли плагин сразу после загрузки; по умолчанию `false`. |
+
+В манифестах также встречаются поля `author` и `dependencies`, но загрузчик не использует их как механизм установки или запуска зависимостей. Поля `commands`, `tools` и `mcp` не являются частью публичного контракта манифеста: команды и инструменты объявляются в коде плагина.
+
+Полный демонстрационный пример доступен в [examples/plugin.example.md](../examples/plugin.example.md).
+
+## Жизненный цикл
 
 ```text
-discover → load → initialize → enable → run → disable → unload
+обнаружение → загрузка → включение → выполнение → отключение → выгрузка
 ```
 
-The loader records the manifest, imports the declared entry point, applies plugin-specific configuration, and reports readiness. Initialization failures should leave the plugin disabled rather than preventing the whole assistant from starting.
+1. **Обнаружение** — поиск `plugin.json` в поддиректориях.
+2. **Загрузка** — динамический импорт `entry_point`, создание экземпляра, подключение ссылки на ядро и вызов `on_load()`.
+3. **Включение** — вызов `initialize()`; при успехе плагин получает статус `ready`, при ошибке — `error` и остаётся отключённым.
+4. **Выполнение** — выполнение команд или инструментов по запросу ядра.
+5. **Отключение** — перевод в состояние `disabled`.
+6. **Выгрузка** — вызов `on_unload()`, удаление подписок и освобождение ресурсов.
 
-## Manifest contract
+Повторная загрузка выполняется через `unload` + `load`. Отдельный сбой плагина не должен останавливать загрузку остальных модулей.
 
-A plugin declares at least:
+## События
 
-- a stable name;
-- version and description;
-- entry point;
-- optional dependencies;
-- default configuration;
-- whether it should be enabled automatically.
+`EventBus` поддерживает синхронные и асинхронные обработчики. Плагин может подписаться через `subscribe_event` или `subscribe_event_async`; подписки автоматически отслеживаются и удаляются при выгрузке.
 
-The public example is available at [../examples/plugin.example.md](../examples/plugin.example.md).
+В текущем приложении используются следующие события:
 
-## Event integration
+- `MESSAGE_RECEIVED` — до сборки основного запроса;
+- `PROMPT_BUILDING` — перед формированием промпта;
+- `MESSAGE_PROCESSED` — после обработки сообщения;
+- `MEMORY_NUDGE` — предложения памяти для пользовательского решения.
 
-Plugins can subscribe to core events. Common phases include:
+Некоторые значения `EventType` объявлены как резервные и текущим кодом не публикуются. Синхронные обработчики должны быть короткими; сетевой ввод-вывод и долгую обработку лучше переносить в асинхронный обработчик или фоновую задачу.
 
-- message reception;
-- prompt construction;
-- provider response;
-- plugin completion;
-- background maintenance.
+## Контекстная инжекция
 
-Synchronous handlers must return quickly. Long-running work is moved to an asynchronous task or background queue. Unsubscribing is part of unload so disabled plugins do not retain references or continue work.
+Во время `PROMPT_BUILDING` плагин может добавить сообщение в `PromptPipeline`. Каждое вложение имеет источник, приоритет и помеченные границы: системная политика остаётся выше контекста плагинов, а внешние данные не получают права менять безопасность.
 
-## Context injection
+Поиск, память и другие внешние результаты проходят очистку. Плагин должен возвращать структурированный и ограниченный по объёму результат, не логируя секреты, токены и сырые приватные данные.
 
-A plugin may add context to PromptPipeline. Every injection receives:
+## Команды и инструменты
 
-- a priority;
-- a source label;
-- sanitized content;
-- a clear boundary from system instructions.
+Плагин может реализовать:
 
-Search results, memory records, and other external content are treated as data. They are filtered before injection and never granted authority over system policy.
+- `execute(command, **kwargs)` для прямых команд;
+- `get_tools()` для схем инструментов, совместимых с OpenAI;
+- `execute_tool(name, arguments)` для вызова конкретного инструмента.
 
-## Tools
+Ядро собирает инструменты готовых плагинов и передаёт их Агентному циклу. Перед выполнением проходит карта возможностей: неизвестные действия запрещены по умолчанию. Для разрешённых действий применяются уровни риска, политика автономии, ворота подтверждения, песочница, аудит и проверка результата инструмента.
 
-Tool-capable plugins expose a structured tool schema. The core validates arguments, executes the tool through the plugin boundary, and returns a normalized result. Tools are preferable to free-text overrides because they make permissions, inputs, and outputs explicit.
+Это означает, что сам манифест не предоставляет плагину произвольный доступ к shell или к файлам за пределами объявленной области разрешений.
 
-## Status and observability
+## Перехват ответа
 
-Each plugin reports a status such as disabled, initializing, ready, or error. The interface can show module state without exposing internal logs. Errors should be non-fatal by default: a failed optional plugin must not terminate the main response.
+Метод `BaseModule.on_message(message, history)` является хуком на уровне кода. Если готовый плагин возвращает из него непустую строку, ядро записывает её как ответ ассистента и пропускает обращение к LLM-провайдеру. В манифесте нет поля `override_response`: поведение включается реализацией метода в коде. Встроенные плагины этот хук не используют.
 
-## Extension checklist
+## MCP bridge
 
-Before adding a plugin:
+`mcp/deepseek_bridge.py` — отдельный адаптер провайдера и MCP-сервис, а не плагин. Он не имеет `plugin.json`, не проходит через `PluginLoader` и не подписывается на события плагинов. Его роль — предоставлять совместимую с DeepSeek HTTP/MCP конечную точку для вызовов и статуса.
 
-1. define the smallest useful capability;
-2. declare configuration and dependencies;
-3. keep I/O off the main event path;
-4. sanitize all external content;
-5. return structured results;
-6. document privacy and side effects;
-7. add focused tests for success, failure, and cancellation paths.
+## Состояние и наблюдаемость
+
+Стандартные состояния модуля:
+
+- `disabled`;
+- `initializing`;
+- `ready`;
+- `error`.
+
+Интерфейс может показывать состояние модулей без раскрытия внутренних логов. Ошибки опциональных плагинов по умолчанию считаются необрывающими для основного диалога; ядро продолжает работу с тем контекстом, который удалось собрать.
+
+## Чек-лист расширения
+
+1. Определить минимальную возможность и публичный контракт.
+2. Добавить манифест и точный `entry_point`.
+3. Не считать `requires`/`dependencies` механизмом автоматической установки.
+4. Разделить быстрый синхронный путь и фоновый ввод-вывод.
+5. Очистить внешние данные и не логировать секреты.
+6. Возвращать структурированные результаты и явно обрабатывать ошибки.
+7. Проверить карту возможностей, ворота подтверждения, песочницу и аудит для действий с внешними эффектами.
+8. Добавить тесты успешного выполнения, отказа и отмены.
