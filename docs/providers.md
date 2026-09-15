@@ -1,63 +1,80 @@
-# Provider Strategy
+# Провайдеры
 
-## Abstract contract
+## Назначение
 
-JARVIS treats an LLM provider as an adapter with a small common contract:
+`Provider Manager` — фабрика и координатор LLM-провайдеров. Ядро не импортирует конкретного поставщика: оно работает с общим контрактом `AIProvider` и получает от менеджера уже подготовленный адаптер.
 
-- initialize a provider instance from configuration;
-- send a message or message sequence;
-- stream tokens or structured chunks;
-- report errors and availability;
-- expose provider-specific quota information when available.
+Минимальный контракт провайдера включает:
 
-The core does not import a concrete provider. It asks Provider Manager for a candidate and consumes the normalized result.
+- создание экземпляра из конфигурации;
+- выполнение обычного запроса или последовательности сообщений;
+- потоковую передачу ответа;
+- поддержку структурированных вызовов инструментов, если провайдер её умеет;
+- нормализацию ошибок, состояния доступности и, где возможно, квот.
 
-## Candidate chain
+## Конфигурация и цепочка кандидатов
 
-A configuration defines one primary provider and an ordered list of fallback candidates. A typical chain is:
+Порядок провайдеров задаётся через `DEFAULT_PROVIDER`, `DEFAULT_MODEL` и `FALLBACK_PROVIDERS`. Значение `DEFAULT_PROVIDER` имеет вид `provider/model`, например `groq/openai/gpt-oss-120b`.
+
+Типовая цепочка по умолчанию:
 
 ```text
-primary provider → secondary provider → tertiary provider
+groq/openai/gpt-oss-120b
+  → openrouter
+  → zen-nemotron-3-ultra-free
+  → zen-x-preview-f-free
+  → zen-mimo-v2.5-free
 ```
 
-Candidates are evaluated in order. A candidate can be skipped because credentials are missing, a dependency is unavailable, the model is unsupported, or the provider is still in cooldown.
+`openrouter` и `zen-*` используют совместимые с OpenAI конечные точки, но остаются отдельными кандидатами. Дополнительные интеграции можно включить конфигурацией: Gemini, DeepSeek, Kimi, Claude, локальный GGUF/Ollama и мост DeepSeek Web. Если ключ, зависимость или модель недоступны, кандидат пропускается; если ни один кандидат не подходит, запуск завершается ошибкой.
 
-## Streaming and fallback
+## Инициализация и состояние провайдера
 
-Streaming has two important rules:
+При старте `Provider Manager` последовательно пробует основной провайдер и список резервных кандидатов. При успешной инициализации он запоминает активного провайдера и модель; при полной неудаче сообщает об этом ядру.
 
-1. The first usable chunk identifies the provider responsible for the answer.
-2. After the first chunk, the implementation does not switch providers for the same user message.
+Для запросов во время выполнения кандидаты сортируются так, чтобы сначала рассматривались доступные (`ok`) провайдеры, а временно недоступные (`cooling`) — после них. Основной провайдер остаётся первым в списке свежих кандидатов. Состояние можно получить через конечную точку состояния; по умолчанию пауза восстановления составляет 300 секунд.
 
-This prevents a response from being assembled from two models. If a provider times out before the first chunk, the manager records the failure and tries the next candidate. If a provider fails after streaming started, the error is surfaced instead of silently mixing output.
+`PROVIDER_COOLDOWN` ограничивает частоту повторных попыток к уже отказавшему endpoint. После успешного запроса провайдер возвращается в состояние `ok`.
 
-## Health and cooldown
+## Потоковая передача и резервный провайдер
 
-Each candidate has a health state:
+У потокового запроса есть контрольный таймаут первого чанка. Если провайдер не прислал первый чанк за `FIRST_CHUNK_TIMEOUT` (по умолчанию 30 секунд), он считается недоступным и следующий кандидат получает шанс ответить.
 
-- `ok`: available for selection;
-- `cooling`: recently failed and temporarily deprioritized;
-- unavailable: missing configuration or dependency.
+После того как первый полезный чанк уже передан клиенту, провайдер для этого сообщения фиксируется. Ошибка на последующих чанках не приводит к молчаливому переключению: ответ завершается ошибкой, чтобы части одного ответа не оказались собраны из разных моделей.
 
-Cooldown prevents a failing endpoint from receiving every retry. It also allows a provider to recover without requiring a process restart. The UI can show provider health and the active provider separately, because the configured primary and the provider that actually answered a request may differ.
+Чанки нормализуются до единого формата, содержащего текст ответа и, если поставщик его предоставляет, поле `reasoning`. Пустой поток рассматривается как неудачная попытка и может быть заменён следующим кандидатом.
 
-## Provider families
+Для провайдеров с поддержкой `ask_messages_with_tools_stream` используется отдельный агентный цикл для вызова инструментов. Этот путь выполняет проверки безопасности и автономии и не подменяет обычный путь резервного провайдера для простых текстовых запросов.
 
-The public case study intentionally does not list private credentials or exact deployment values. The architecture supports provider families such as:
+## Контекстный бюджет
 
-| Family | Role |
-|---|---|
-| Groq | Fast primary inference and free-tier model access |
-| OpenRouter | Secondary routing and access to a broad model catalog |
-| OpenCode Zen | Additional free or low-cost model candidates |
-| Gemini / DeepSeek / Kimi / Claude | Optional provider integrations selected by configuration |
-| Local / GGUF / Ollama | Offline or locally hosted inference when available |
-| Web bridge | Optional compatibility bridge to a local HTTP endpoint |
+`Token Manager` оценивает системный промпт, текущее сообщение, контекст плагинов, историю и резерв ответа. Основной бюджет задаётся `MAX_CONTEXT_TOKENS`; `CONTEXT_WINDOW_SIZE` является параметром контекстного окна, но фактическая обрезка истории в текущей реализации выполняется по токенам, а не по числу сообщений.
 
-## Error classification
+Если рассчитанный бюджет истории становится отрицательным, история обрезается до нуля, чтобы не превышать общий лимит. Сначала сохраняются самые новые сообщения, а системная политика и текущий запрос имеют приоритет над историей.
 
-Provider errors are normalized into user-safe categories: network error, authorization error, rate limit, exhausted credits, unsupported model, timeout, or generic provider error. Detailed diagnostics remain in protected logs.
+## Ошибки и наблюдаемость
 
-## Plugin requests
+Ошибки поставщиков нормализуются в пользовательские категории:
 
-Memory extraction, intent routing, and other background plugin operations use a separate clean request path. These requests do not mutate the active provider or replace the current user response. If all candidates fail, the plugin reports a non-fatal result and the main conversation continues.
+- сетевая ошибка;
+- превышение лимита запросов;
+- блокировка доступа;
+- закончились кредиты;
+- ошибка авторизации;
+- общая ошибка провайдера.
+
+Подробные диагностические данные остаются в защищённых журналах. Если все кандидаты недоступны, пользователю возвращается краткое сообщение, а не внутренний трассировочный стек.
+
+Отдельно отслеживаются состояние и квоты там, где провайдер их предоставляет. Например, OpenRouter возвращает использование и остаток лимита; остальные провайдеры могут не поддерживать этот контракт.
+
+## Запросы плагинов
+
+Фоновые операции плагинов, например извлечение памяти, используют отдельный неблокирующий путь `ask_ai_fallback_async`/`ask_ai_fallback_sync`. Для них создаются новые экземпляры провайдеров; активный провайдер и состояние текущей сессии не изменяются. В этом пути не применяется пауза восстановления, но сохраняется порядок текущего провайдера и список резервных провайдеров.
+
+Неудача фоновой операции не должна прерывать основной диалог: плагин фиксирует результат и продолжает работу с доступным контекстом.
+
+## Безопасность
+
+Ключи провайдеров читаются только из приватной конфигурации окружения и не попадают в публичные примеры или журналы. Данные, полученные от провайдера, проходят нормализацию и рассматриваются как внешний контент. Вызовы инструментов, включая провайдеров с поддержкой инструментов, проходят общий шлюз безопасности: карта возможностей, уровни риска, ворота подтверждения, песочница и аудит.
+
+См. [визуальную схему архитектуры](../assets/architecture.svg) для общего расположения Менеджера провайдеров, Агентного цикла и механизмов безопасности.
