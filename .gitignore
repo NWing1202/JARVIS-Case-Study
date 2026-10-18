@@ -1,0 +1,17 @@
+# Public case study: never publish private deployment data.
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+data/
+logs/
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+*.ppk
+.DS_Store
+Thumbs.db

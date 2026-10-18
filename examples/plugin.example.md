@@ -1,27 +1,27 @@
-# Example plugin contract
+# Контракт плагина
 
-This example describes the public contract for an optional J.A.R.V.I.S. plugin. It is documentation, not deployable source code.
+Этот пример описывает публичный контракт дополнительного плагина J.A.R.V.I.S. Это документация, а не исходный код, который можно развёрнуть.
 
-## Manifest fields
+## Поля манифеста
 
-| Field | Purpose |
+| Поле | Назначение |
 |---|---|
-| `name` | Stable plugin identifier |
-| `version` | Plugin version |
-| `description` | Short public description |
-| `entry_point` | Module and class loaded by the plugin system |
-| `requires` | Optional runtime dependencies |
-| `config` | Default values overridden by private configuration |
-| `auto_enable` | Whether the plugin starts enabled |
+| `name` | Стабильный идентификатор плагина |
+| `version` | Версия плагина |
+| `description` | Краткое публичное описание |
+| `entry_point` | Модуль и класс, которые загружает система плагинов |
+| `requires` | Метаданные зависимостей; загрузчик не устанавливает и не проверяет их автоматически |
+| `config` | Значения по умолчанию, которые могут быть переопределены приватной конфигурацией |
+| `auto_enable` | Запускается ли плагин уже включённым |
 
-Example manifest shape:
+Пример структуры манифеста:
 
 ```json
 {
   "name": "example",
   "version": "1.0.0",
-  "description": "Demonstration plugin with a bounded tool",
-  "author": "JARVIS Team",
+  "description": "Демонстрационный плагин с ограниченным инструментом",
+  "author": "Команда JARVIS",
   "requires": [],
   "auto_enable": false,
   "config": {
@@ -31,48 +31,48 @@ Example manifest shape:
 }
 ```
 
-## Lifecycle
+## Жизненный цикл
 
-1. **Discover**: the loader finds the manifest and records its path.
-2. **Load**: the declared class is imported and receives the core reference.
-3. **Initialize**: dependencies and subscriptions are prepared.
-4. **Enable**: the plugin moves from disabled to ready.
-5. **Run**: the core calls commands or tools according to user intent.
-6. **Disable/Unload**: subscriptions are removed and resources are closed.
+1. **Обнаружение**: загрузчик находит манифест и фиксирует его путь.
+2. **Загрузка**: объявленный класс импортируется и получает ссылку на ядро.
+3. **Инициализация**: подготавливаются зависимости и подписки.
+4. **Включение**: плагин переходит из `disabled` в `ready`.
+5. **Выполнение**: ядро вызывает команды или инструменты в соответствии с намерением пользователя.
+6. **Отключение/выгрузка**: подписки удаляются, ресурсы закрываются.
 
-## Event hooks
+## Хуки событий
 
-A plugin may react to a message event and add context during prompt construction. The event payload should be treated as untrusted data. Return quickly from synchronous hooks; delegate slow work to an asynchronous task.
+Плагин может реагировать на событие сообщения и добавлять контекст во время сборки промпта. payload события следует считать недоверенными данными. Синхронные хуки должны возвращаться быстро; медленную работу лучше переносить в асинхронную задачу.
 
-Example event behavior:
+Пример поведения события:
 
 ```text
 MESSAGE_RECEIVED
-  → validate input
-  → perform bounded preparation
-  → publish a non-fatal result
+  → проверить ввод
+  → выполнить ограниченную подготовку
+  → опубликовать необрывающий результат
 
 PROMPT_BUILDING
-  → add sanitized context with priority 10
-  → keep system policy above plugin context
+  → добавить отфильтрованный контекст с приоритетом 10
+  → оставить системную политику выше контекста плагина
 ```
 
-## Tool contract
+## Контракт инструмента
 
-A tool exposes:
+Инструмент предоставляет:
 
-- a stable name;
-- a human-readable description;
-- a JSON schema for arguments;
-- a normalized string or structured result;
-- explicit error handling.
+- стабильное имя;
+- понятное человеку описание;
+- JSON-схему аргументов;
+- нормализованную строку или структурированный результат;
+- явную обработку ошибок.
 
-The core validates arguments before execution. A plugin must not execute arbitrary shell commands or access files outside its declared permission boundary.
+Ядро проверяет аргументы до выполнения. Плагин не должен выполнять произвольные shell-команды или обращаться к файлам за пределами объявленной области разрешений.
 
-## Privacy checklist
+## Чек-лист приватности
 
-- Do not log tokens, keys, raw private messages, or user identifiers.
-- Store only the minimum data required for the capability.
-- Sanitize external content before prompt injection.
-- Document retention and deletion behavior.
-- Make optional failures non-fatal to the main conversation.
+- Не логировать токены, ключи, сырые приватные сообщения или идентификаторы пользователей.
+- Хранить только минимальные данные, необходимые для возможности.
+- Очищать внешний контент до инъекции в промпт.
+- Описать поведение хранения и удаления данных.
+- Сделать необязательные сбои необрывающими для основного диалога.

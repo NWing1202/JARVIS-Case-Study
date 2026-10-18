@@ -107,13 +107,13 @@
   <g filter="url(#shadow)">
     <rect x="70" y="650" width="220" height="76" rx="16" fill="url(#card)" stroke="#60a5fa" stroke-width="2"/>
     <text x="180" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">Groq</text>
-    <text x="180" y="707" text-anchor="middle" fill="#bfdbfe" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">fast primary</text>
+    <text x="180" y="707" text-anchor="middle" fill="#bfdbfe" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">fast reserve</text>
     <rect x="330" y="650" width="220" height="76" rx="16" fill="url(#card)" stroke="#34d399" stroke-width="2"/>
     <text x="440" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">OpenRouter</text>
     <text x="440" y="707" text-anchor="middle" fill="#bbf7d0" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">secondary routing</text>
     <rect x="590" y="650" width="220" height="76" rx="16" fill="url(#card)" stroke="#f59e0b" stroke-width="2"/>
-    <text x="700" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">Zen</text>
-    <text x="700" y="707" text-anchor="middle" fill="#ffedd5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">additional candidate</text>
+    <text x="700" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">Kilo Gateway</text>
+    <text x="700" y="707" text-anchor="middle" fill="#ffedd5" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">primary · free tier</text>
   </g>
   <path d="M520 557C520 600 180 600 180 650" fill="none" stroke="#60a5fa" stroke-width="3" marker-end="url(#arrow-blue)"/>
   <path d="M600 557V650" fill="none" stroke="#34d399" stroke-width="3" marker-end="url(#arrow-green)"/>
@@ -121,8 +121,8 @@
 
   <g filter="url(#shadow)">
     <rect x="850" y="650" width="250" height="76" rx="16" fill="url(#card)" stroke="#f472b6" stroke-width="2"/>
-    <text x="975" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">Local / Bridge</text>
-    <text x="975" y="707" text-anchor="middle" fill="#fbcfe8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">Ollama · GGUF · HTTP</text>
+    <text x="975" y="682" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="19" font-weight="700">Local</text>
+    <text x="975" y="707" text-anchor="middle" fill="#fbcfe8" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">Ollama · GGUF</text>
     <rect x="280" y="770" width="220" height="64" rx="15" fill="url(#card)" stroke="#fbbf24" stroke-width="2"/>
     <text x="390" y="800" text-anchor="middle" fill="#f8fafc" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="700">Plugin tools</text>
     <text x="390" y="825" text-anchor="middle" fill="#fde68a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13">search · memory · voice</text>
