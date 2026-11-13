@@ -69,14 +69,24 @@ J.A.R.V.I.S. — мой основной личный проект для пра
 
 ## Скриншоты
 
-**Интерфейс и подсистемы** (демо-сессия, 1280×800, тёмная тема):
+**Панели интерфейса** (демо-сессия, тёмная тема):
 
 | | |
 |---|---|
-| ![Диалог со стримингом ответа](assets/hero-chat.png) | ![Вики памяти с фактами](assets/memory-wiki.png) |
-| ![Навыки в базе](assets/skills.png) | ![Каталог моделей](assets/providers.png) |
-| ![Напоминания и слежение](assets/scheduler.png) | ![Таск-трекер в ходе](assets/task-tracker.png) |
-| ![Юнит-тесты в терминале](assets/selfcheck.png) | ![Схема архитектуры](assets/architecture.png) |
+| ![Вики памяти с фактами](assets/memory-wiki.png) | ![Навыки в базе](assets/skills.png) |
+| ![Каталог моделей](assets/providers.png) | ![Напоминания и слежение](assets/scheduler.png) |
+
+**Диалог со стримингом ответа**:
+
+<p align="center"><img src="assets/hero-chat.png" width="720" alt="Диалог со стримингом ответа"></p>
+
+**Юнит-тесты в терминале** (вкладка «Терминал», полный прогон):
+
+<p align="center"><img src="assets/selfcheck.png" width="720" alt="Юнит-тесты в терминале"></p>
+
+**Схема архитектуры**:
+
+<p align="center"><img src="assets/architecture.png" width="720" alt="Схема архитектуры"></p>
 
 **Память в действии** — «запомни» → факт в «Вики памяти» → retrieval в ответе:
 
@@ -84,7 +94,7 @@ J.A.R.V.I.S. — мой основной личный проект для пра
 
 **Таск-трекер**: модель ведёт план человекоязыком (`task_plan`), шаги закрываются от фактов.
 
-<p align="center"><img src="screenshots/cs-tracker.png" width="720" alt="Таск-трекер"></p>
+<p align="center"><img src="assets/task-tracker.png" width="720" alt="Таск-трекер"></p>
 
 **Харнесс-бокс хронологичен**: рассуждение → инструмент → рассуждение, как в Claude Code.
 
